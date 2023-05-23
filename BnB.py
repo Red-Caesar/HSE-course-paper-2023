@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List, Tuple
+from collections import deque
 import time 
 
 
@@ -7,6 +8,20 @@ class BnBMethod:
     def __init__(self) -> None:
         self.times = []
         self.records = []
+    
+    class Node:
+        def __init__(self, upper_bound: float, lower_bound: int, level: int, branches: List[int]) -> None:
+            self.upper_bound = upper_bound
+            self.lower_bound = lower_bound
+            self.level = level
+            self.prev_branches = branches
+            self.parent = None
+            self.children = []
+    
+    class Record:
+        def __init__(self, cost: float, path: List[int]) -> None:
+            self.cost = cost
+            self.path = path
     
     def remove_row_col(self, matrix: List[List], remove_list: List) -> List[List]:
         row = []
@@ -29,7 +44,7 @@ class BnBMethod:
             col_min.append(min(matrix[:, i]))
         return max(sum(row_min), sum(col_min))
 
-    def find_upper_bound(self, matrix: List[List], visited: List) -> Tuple[int, List]:
+    def find_upper_bound(self, matrix: List[List[float]], visited: List[int]) -> Tuple[float, List[int]]:
         upper_bound = 0
         if len(visited) > 1:
             for i in range(len(visited)-1):
@@ -38,7 +53,6 @@ class BnBMethod:
         start = visited[-1]
         queue = []
         queue.append(start)
-
         while queue:
             i = queue.pop()
             if len(visited) == len(matrix):
@@ -57,47 +71,40 @@ class BnBMethod:
                     break
         return (upper_bound, visited)
 
-    # Надо продумать еще раз, что мне возвращается из рекурсии и не перебивается ли это другой рекурсией
-    def branches_and_boundaries(self, matrix: List[List], path: List, record: Tuple[float, List]) -> Tuple[float, List]:
-        lower_bound = self.find_lower_bound(matrix, path[:])
-        upper_bound, upper_path = self.find_upper_bound(matrix, path[:])
-        if upper_bound < record[0]:
-            record = (upper_bound, upper_path)
-        if lower_bound >= record[0]:
-            self.records.append(record)
-            return record
-        for i in range(len(matrix)):
-            if i not in path:
-                record = self.branches_and_boundaries(matrix, path + [i], record)
-        self.records.append(record)
-        return record
+    def branches_and_boundaries(self, matrix: List[List[float]], record: Record) -> Record:
+        root = self.Node(0, 0, -1, [0])
+        queue = deque()
+        queue.append(root)
+        while queue:
+            node = queue.popleft()
+            level = node.level + 1
+            if level >= len(matrix):
+                continue
+
+            node.lower_bound = self.find_lower_bound(matrix, node.prev_branches[:])
+            node.upper_bound, path = self.find_upper_bound(matrix, node.prev_branches[:])
+
+            if node.lower_bound > record.cost:
+                continue
+            if node.upper_bound < record.cost:
+                record.cost, record.path = node.upper_bound, path
+            
+            for next_branch in range(len(matrix)):
+                if next_branch not in node.prev_branches:
+                    children = self.Node(0, 0, level, node.prev_branches + [next_branch])
+                    children.parent = node
+                    node.children.append(children)
+                    queue.append(children)
     
-    def start(self, example: List[List[float]]):
-        record = (float('inf'), None)
-        # for i in range(len(example)):
-        start = time.time()
-        self.branches_and_boundaries(example, [0], record)
-        end = time.time() - start
-        self.times.append(end)
+    def start(self, example: List[List[float]], repeat: int):
+        record = self.Record(float('inf'), None)
+        # Можно распаралеллить потом
+        for _ in range(repeat):
+            start = time.time()
+            self.branches_and_boundaries(example, record)
+            end = time.time() - start
+            self.times.append(end)
+        return record.cost, record.path
     
     def getMeanTime(self) -> float:
         return np.mean(self.times)
-    
-    def getBestRecord(self) -> float:
-        best = (float('inf'), None)
-        for record, path in self.records:
-            if record < best[0]:
-                best = (record, path)
-        return best
-
-M = float('inf')
-ex_1 = np.array([
-    [M, 10, 1, 1],
-    [10, M, 1, 5],
-    [1, 1, M, 10],
-    [1, 5, 10, M]
-])    
-
-BnB_model = BnBMethod()
-BnB_model.start(ex_1)
-print(BnB_model.getBestRecord())
