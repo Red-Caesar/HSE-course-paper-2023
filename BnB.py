@@ -42,7 +42,7 @@ class BnBMethod:
         while queue:
             i = queue.pop()
             if len(visited) == len(matrix):
-                # upper_bound += matrix[i][visited[0]]
+                upper_bound += matrix[i][visited[0]]
                 visited.append(visited[0])
                 break
 
@@ -89,4 +89,15 @@ class BnBMethod:
             if record < best[0]:
                 best = (record, path)
         return best
-    
+
+M = float('inf')
+ex_1 = np.array([
+    [M, 10, 1, 1],
+    [10, M, 1, 5],
+    [1, 1, M, 10],
+    [1, 5, 10, M]
+])    
+
+BnB_model = BnBMethod()
+BnB_model.start(ex_1)
+print(BnB_model.getBestRecord())
