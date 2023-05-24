@@ -76,7 +76,7 @@ class BnBMethod:
         queue = deque()
         queue.append(root)
         while queue:
-            node = queue.popleft()
+            node = queue.pop()
             level = node.level + 1
             if level >= len(matrix):
                 continue
