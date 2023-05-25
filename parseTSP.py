@@ -18,6 +18,8 @@ def parsing(filename: str, fill_same: float, city_numbers: int=None) -> List[Lis
             if int(edge.text) >= n:
                 continue
             matrix[i][int(edge.text)] = float(edge.get('cost'))
-    with open(f'data/{filename}_answer.txt', 'r') as f:
-        answer = float(f.readline())
+    answer = None
+    if not city_numbers:        
+        with open(f'data/{filename}_answer.txt', 'r') as f:
+            answer = float(f.readline())
     return matrix, answer
