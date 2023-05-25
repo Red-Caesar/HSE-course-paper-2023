@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from typing import Tuple, List
 
 def parsing(filename: str, fill_same: float, city_numbers: int=None) -> List[List[float]]:
-    tree = ET.parse(f'data/{filename}')
+    tree = ET.parse(f'data/{filename}.xml')
     root = tree.getroot()
     graph = root.find('graph')
     matrix = []
@@ -18,4 +18,6 @@ def parsing(filename: str, fill_same: float, city_numbers: int=None) -> List[Lis
             if int(edge.text) >= n:
                 continue
             matrix[i][int(edge.text)] = float(edge.get('cost'))
-    return matrix
+    with open(f'data/{filename}_answer.txt', 'r') as f:
+        answer = float(f.readline())
+    return matrix, answer
