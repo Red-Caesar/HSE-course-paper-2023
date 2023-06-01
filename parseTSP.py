@@ -1,7 +1,8 @@
 import xml.etree.ElementTree as ET
-from typing import Tuple, List
+from typing import Tuple, Union
+import numpy as np
 
-def parsing(filename: str, fill_same: float, city_numbers: int=None) -> List[List[float]]:
+def parsing(filename: str, fill_same: float, city_numbers: int=None) -> Tuple[np.array, Union[float, None]]:
     tree = ET.parse(f'data/{filename}.xml')
     root = tree.getroot()
     graph = root.find('graph')
@@ -22,4 +23,4 @@ def parsing(filename: str, fill_same: float, city_numbers: int=None) -> List[Lis
     if not city_numbers:        
         with open(f'data/{filename}_answer.txt', 'r') as f:
             answer = float(f.readline())
-    return matrix, answer
+    return np.array(matrix), answer
