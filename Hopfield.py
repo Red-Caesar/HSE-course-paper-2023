@@ -3,6 +3,7 @@ from typing import List, Dict, Tuple
 from scipy.special import expit
 from collections import OrderedDict
 import time 
+import pandas as pd
 
 class HopfieldModel:
     '''
@@ -11,35 +12,9 @@ class HopfieldModel:
     Ей подается матрица путей, высчитываются веса и смещение по формулам. Потом ей подается матрица маршрута, причем разные и несколько раз,
     т.к. модель находит локальный минимум, а не глобальный.
 
-    Храним:
-    1. Гиперпараметры: A, B, C, D
-    2. Веса
-    3. Смещение
-    4. Слой (название нейронов слоя)
-    5. Прошлое значение функции энергии
-    6. Название функции активации, которую мы хотим использовать
-    7. Сколько раз будем запускать сеть
-    8. Финальный путь
-    9. Возможно результаты, которые мы захотим сохранить в файл(время, финальный путь)
-    10. Стоп параметр
-    
-    Функции, которые нам нужны:
-    1. Функция, которая высчитывает веса и записывает их в переменную
-    2. Функция, которая создает рандомный маршрут и возвращает его
-    3. Функция активации, которую мы будем использовать
-    4. Функция, которая высчитывает значение одного нейрона и возвращает его
-    5. Расчет функции энергии
-    6. Функция, которая работает с сетью: высчитывает слой в первый раз и итерирует его потом.
-    7. Вывол финального пути
-    8. Функция для сохранения результатов в файл?
-    9. Функция, которая выводит стоимость пути
-    
-
-    (неплохо было бы сделать принты, которые бы выводили прогресс)
-    Нужно будет еще потом замерять время.
     '''
     
-    def __init__(self, distance_matrix: List[List], fun_activation: str, param: List=[1,1,1,1], iterations: int=5, iterations_limit = 100000) -> None:
+    def __init__(self, distance_matrix: List[List[float]], fun_activation: str, param: List[int]=[1,1,1,1], repetition: int=5, iterations_limit: int=100000, without_changes: int=100) -> None:
         if len(param) != 4:
             raise ValueError('You should put 4 hyperparameters to the network') 
         if fun_activation not in ['threshold', 'sigmoid']:
@@ -50,20 +25,26 @@ class HopfieldModel:
         self.distance_matrix = distance_matrix
         self.fun_activation = fun_activation
         self.A, self.B, self.C, self.D = param
-        self.iterations = iterations
+        self.repetition = repetition
         self.iterations_limit = iterations_limit
+        self.without_changes = without_changes
         self.city = len(distance_matrix)
 
 
         self.index_list, self.bias, self.weights = self.calculate_params()
         self.layer = OrderedDict()
 
-        self.energy_fun = None
+        self.start_counter = 0
+        self.isFinished = False
+
+        self.best_energy_fun = None
         self.all_energy = []  
         self.times = []
+        self.all_total = []
 
         self.final_path = None
         self.total = None
+        self.string_path = None
 
         
     
@@ -114,15 +95,17 @@ class HopfieldModel:
             e_fun -= 2*self.bias*self.layer[index_i]
         return e_fun 
     
-    def check_if_TSP(self, final_path: dict) -> bool:
-        order_dict = dict()
+    def isTSP(self, final_path: dict) -> bool:
+        order_set = set()
+        city_set = set()
         visited = 0
         for index in self.index_list:
             if int(final_path[index]) == 1:
                 visited += 1
                 city, order = list(map(int, index.split('_')))
-                if order not in order_dict:
-                    order_dict[order] = city
+                if order not in order_set and city not in city_set:
+                    order_set.add(order)
+                    city_set.add(city)
                 else: 
                     # "It's not a TSP path. Different city was visited at the same time"
                     return False
@@ -131,77 +114,99 @@ class HopfieldModel:
             return False
         return True
 
-    def clear_previous_results(self):
-        self.energy_fun = None
-        self.all_energy = []  
-        self.times = []
-        self.final_path = None
 # Сейчас у меня сохраняется лучший путь последней итерации)) А так быть не должно
-    def get_path(self) -> bool:
-        self.clear_previous_results()
-        for _ in range(self.iterations):
+    def start_network(self) -> bool:
+        if self.start_counter > 100:
+            return
+        else:
+            self.start_counter += 1
+        for _ in range(self.repetition):
             path = np.random.randint(2, size=self.city**2)
             for index_i in self.index_list:
                 self.calculate_neuron(index_i, path)
-            self.energy_fun = self.calculate_energy_fun()
+            if not self.best_energy_fun:
+                self.best_energy_fun = self.calculate_energy_fun()
             k = 0
             start = time.time()
-            # print(self.final_path, self.city)
-            # while not self.final_path:
-            while True:
-                if k >= self.iterations_limit:
-                    break
-                else:
-                    k += 1 
+            without_changes_counter = 0
+            while k < self.iterations_limit:
                 neuron = np.random.choice(self.index_list, 1)[0]
                 self.calculate_neuron(neuron, list(self.layer.values()))
                 new_e_fun = self.calculate_energy_fun()
-                # Возможно это условие излишне и просто надо поставить контин, когда new_e_fun > self.energy_fun, а почему вообще > ?
-                if new_e_fun > self.energy_fun:
-                    break
-                else:
-                    self.energy_fun = new_e_fun
-                    self.all_energy.append(self.energy_fun)
-                    # if self.check_if_TSP(self.layer):
-                    #     self.final_path = self.layer
+                if new_e_fun < self.best_energy_fun:
+                    self.best_energy_fun = new_e_fun
+                    self.all_energy.append(new_e_fun)
                     self.final_path = self.layer
-            end = time.time() - start
-            self.times.append(end)
-        if not self.final_path:
-            return False
-        else:
-            self.total = self.calculate_distance()
-            return True
+                else:
+                    without_changes_counter += 1
 
-    # Пока что я не могу считать это верно, потому что, чтобы это посчитать мы еще должны знать, какой был прошлый город 
+                if without_changes_counter > self.without_changes:
+                    break
+
+            if self.isTSP(self.final_path):
+                end = time.time() - start
+                self.times.append(end)
+                self.total = self.calculate_distance()
+                self.all_total.append(self.total)
+                self.isFinished = True
+        
+        if not self.isFinished:
+            self.start_network()
+
     def calculate_distance(self) -> float:
-        total = 0
         order_dict = dict()
-        visited = 0
         for index in self.index_list:
             if int(self.final_path[index]) == 1:
-                visited += 1
                 city, order = list(map(int, index.split('_')))
                 order_dict[order] = city
 
         order_turple = sorted(order_dict.items(), key=lambda x: x[0])
+        total = self.distance_matrix[len(order_turple) - 1][0] 
+        path = []
         for i, order_city in enumerate(order_turple):
             if i == 0:
+                path.append(order_city[1])
                 continue
             cur_city = int(order_city[1])
             prev_city = int(order_turple[i-1][1])
             total += self.distance_matrix[prev_city][cur_city]
+            path.append(order_city[1])
+        path.append(order_turple[0][1])
+        self.string_path = ' -> '.join(list(map(str, path)))
         return total
 
     
     def print_result(self) -> None:
-        print(self.total)
-        print(self.all_energy)
-        print(self.times)
-        for index in self.index_list:
-            if int(self.final_path[index]) == 1:
-                city, order = list(map(int, index.split('_')))
-                print(f'City #{city} order in path {order}')
+        print('Total distance: ', self.total)
+        print(self.string_path)
     
-    def mean_time(self) -> float:
+    def get_mean_time(self) -> float:
         return np.mean(self.times)
+    
+    def get_mean_path(self) -> float:
+        return np.mean(self.all_total)
+    
+    def get_isFinished(self) -> bool:
+        return self.isFinished
+    
+    def get_total(self) -> float:
+        return self.total
+    
+    def get_path(self) -> str:
+        return self.string_path
+
+
+def tune_model(task_name: str, matrix: np.array, fun: str, A: List[int], B: List[int], C: List[int], D: List[int], rep: int) -> None:
+    table = []
+    for i in range(len(A)):
+        model = HopfieldModel(matrix, fun, [A[i], B[i], C[i], D[i]], rep)
+        model.start_network()
+        if model.get_isFinished():
+            total = model.get_total()
+            mean_time = model.get_mean_time()
+            mean_path = model.get_mean_path()
+            path = model.get_path()
+            table.append([A[i], B[i], C[i], D[i], total, mean_time, mean_path, path])
+
+    df = pd.DataFrame(table, columns=['A', 'B', 'C', 'D', 'result', 'mean_time', 'mean_path', 'path'])
+    df.to_excel(f'results/{task_name}.xlsx')  
