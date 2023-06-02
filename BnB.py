@@ -48,8 +48,8 @@ class BnBMethod:
         upper_bound = cur_cost
 
         start = prev_branches[-1]
-        queue = []
-        queue.append(start)
+        queue = [start]
+
         while queue:
             i = queue.pop()
             if len(prev_branches) == len(matrix):
@@ -57,16 +57,15 @@ class BnBMethod:
                 prev_branches.append(prev_branches[0])
                 break
 
-            row = dict(zip(range(len(matrix)), matrix[i]))
-            row = sorted(row.items(), key=lambda x: x[1])
-            
-            visited = set(prev_branches)
-            for key, val in row:
-                if key not in visited:
-                    upper_bound += val
-                    prev_branches.append(key)
-                    queue.append(key)
-                    break
+            min_element = float('inf')
+            min_index = -1
+            for j in range(len(matrix)):
+                if j not in prev_branches and matrix[i][j] < min_element:
+                    min_element = matrix[i][j]
+                    min_index = j
+            queue.append(min_index)
+            upper_bound += min_element
+            prev_branches.append(min_index)
         return (upper_bound, prev_branches)
 
     def branches_and_boundaries(self, matrix: List[List[float]], record: Record) -> Record:
