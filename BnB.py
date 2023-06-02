@@ -44,29 +44,30 @@ class BnBMethod:
             col_min.append(min(matrix[:, i]))
         return max(sum(row_min), sum(col_min))
 
-    def find_upper_bound(self, matrix: List[List[float]], visited: List[int], cur_cost: float) -> Tuple[float, List[int]]:
+    def find_upper_bound(self, matrix: List[List[float]], prev_branches: List[int], cur_cost: float) -> Tuple[float, List[int]]:
         upper_bound = cur_cost
 
-        start = visited[-1]
+        start = prev_branches[-1]
         queue = []
         queue.append(start)
         while queue:
             i = queue.pop()
-            if len(visited) == len(matrix):
-                upper_bound += matrix[i][visited[0]]
-                visited.append(visited[0])
+            if len(prev_branches) == len(matrix):
+                upper_bound += matrix[i][prev_branches[0]]
+                prev_branches.append(prev_branches[0])
                 break
 
             row = dict(zip(range(len(matrix)), matrix[i]))
             row = sorted(row.items(), key=lambda x: x[1])
             
+            visited = set(prev_branches)
             for key, val in row:
                 if key not in visited:
                     upper_bound += val
-                    visited.append(key)
+                    prev_branches.append(key)
                     queue.append(key)
                     break
-        return (upper_bound, visited)
+        return (upper_bound, prev_branches)
 
     def branches_and_boundaries(self, matrix: List[List[float]], record: Record) -> Record:
         root = self.Node(0, 0, -1, [0])
