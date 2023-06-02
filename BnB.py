@@ -15,7 +15,7 @@ class BnBMethod:
             self.lower_bound = lower_bound
             self.level = level
             self.prev_branches = branches
-            self.parent = None
+            self.prev_cost = 0
             self.children = []
     
     class Record:
@@ -44,12 +44,9 @@ class BnBMethod:
             col_min.append(min(matrix[:, i]))
         return max(sum(row_min), sum(col_min))
 
-    def find_upper_bound(self, matrix: List[List[float]], visited: List[int]) -> Tuple[float, List[int]]:
-        upper_bound = 0
-        if len(visited) > 1:
-            for i in range(len(visited)-1):
-                upper_bound += matrix[visited[i]][visited[i+1]]
-            
+    def find_upper_bound(self, matrix: List[List[float]], visited: List[int], cur_cost: float) -> Tuple[float, List[int]]:
+        upper_bound = cur_cost
+
         start = visited[-1]
         queue = []
         queue.append(start)
@@ -82,7 +79,7 @@ class BnBMethod:
                 continue
 
             node.lower_bound = self.find_lower_bound(matrix, node.prev_branches[:])
-            node.upper_bound, path = self.find_upper_bound(matrix, node.prev_branches[:])
+            node.upper_bound, path = self.find_upper_bound(matrix, node.prev_branches[:], node.prev_cost)
 
             if node.lower_bound > record.cost:
                 continue
@@ -92,7 +89,7 @@ class BnBMethod:
             for next_branch in range(len(matrix)):
                 if next_branch not in node.prev_branches:
                     children = self.Node(0, 0, level, node.prev_branches + [next_branch])
-                    children.parent = node
+                    children.prev_cost = node.prev_cost + matrix[node.prev_branches[-1]][next_branch]
                     node.children.append(children)
                     queue.append(children)
     
