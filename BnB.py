@@ -16,7 +16,6 @@ class BnBMethod:
             self.level = level
             self.prev_branches = branches
             self.prev_cost = 0
-            self.children = []
     
     class Record:
         def __init__(self, cost: float, path: List[int]) -> None:
@@ -66,6 +65,7 @@ class BnBMethod:
             queue.append(min_index)
             upper_bound += min_element
             prev_branches.append(min_index)
+
         return (upper_bound, prev_branches)
 
     def branches_and_boundaries(self, matrix: List[List[float]], record: Record) -> Record:
@@ -78,7 +78,7 @@ class BnBMethod:
             if level >= len(matrix):
                 continue
 
-            node.lower_bound = self.find_lower_bound(matrix, node.prev_branches[:])
+            node.lower_bound = node.prev_cost + self.find_lower_bound(matrix, node.prev_branches[:])
             node.upper_bound, path = self.find_upper_bound(matrix, node.prev_branches[:], node.prev_cost)
 
             if node.lower_bound > record.cost:
@@ -90,7 +90,6 @@ class BnBMethod:
                 if next_branch not in node.prev_branches:
                     children = self.Node(0, 0, level, node.prev_branches + [next_branch])
                     children.prev_cost = node.prev_cost + matrix[node.prev_branches[-1]][next_branch]
-                    node.children.append(children)
                     queue.append(children)
     
     def start(self, example: List[List[float]], repeat: int):
@@ -105,3 +104,10 @@ class BnBMethod:
     
     def getMeanTime(self) -> float:
         return np.mean(self.times)
+
+from parseTSP import parsing
+matrix, _ = parsing('burma14', float('inf'))
+# for row in range(len(matrix)):
+#     print('[ ' + ', '.join(list(map(str, matrix[row]))) + '],')
+BnB_model = BnBMethod()
+print(BnB_model.start(np.array(matrix), 1), BnB_model.getMeanTime())
