@@ -94,7 +94,6 @@ class BnBMethod:
     
     def start(self, example: List[List[float]], repeat: int):
         record = self.Record(float('inf'), None)
-        # Можно распаралеллить потом
         for _ in range(repeat):
             start = time.time()
             self.branches_and_boundaries(example, record)
@@ -104,10 +103,3 @@ class BnBMethod:
     
     def getMeanTime(self) -> float:
         return np.mean(self.times)
-
-from parseTSP import parsing
-matrix, _ = parsing('burma14', float('inf'))
-# for row in range(len(matrix)):
-#     print('[ ' + ', '.join(list(map(str, matrix[row]))) + '],')
-BnB_model = BnBMethod()
-print(BnB_model.start(np.array(matrix), 1), BnB_model.getMeanTime())
