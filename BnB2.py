@@ -40,9 +40,12 @@ class BnBMethod:
         row_min = []
         col_min = []
         for i in range(len(matrix)):
-            row_min.append(min(matrix[i])) 
+            min_r = min(matrix[i])
+            row_min.append(min_r) 
+            matrix[i] = matrix[i] - min_r
+        for i in range(len(matrix)):
             col_min.append(min(matrix[:, i]))
-        return max(sum(row_min), sum(col_min))
+        return sum(row_min) + sum(col_min)
 
     def find_upper_bound(self, matrix: List[List[float]], prev_branches: List[int], cur_cost: float) -> Tuple[float, List[int]]:
         upper_bound = cur_cost
@@ -79,7 +82,7 @@ class BnBMethod:
             if level >= len(matrix):
                 continue
 
-            node.lower_bound = node.prev_cost + self.find_lower_bound(node.excluded_matrix, node.included[:])
+            node.lower_bound = node.prev_cost + self.find_lower_bound(np.copy(node.excluded_matrix), node.included[:])
             node.upper_bound, path = self.find_upper_bound(node.excluded_matrix, node.included[:], node.prev_cost)
 
             if node.lower_bound >= record.cost or node.upper_bound >= float('inf'):
@@ -114,7 +117,7 @@ class BnBMethod:
     def getMeanTime(self) -> float:
         return np.mean(self.times)
 
-from parseTSP import parsing
-matrix, _ = parsing('gr24', float('inf'), 6)
-BnB_model = BnBMethod()
-print(BnB_model.start(np.array(matrix), 1), BnB_model.getMeanTime())
+# from parseTSP import parsing
+# matrix, _ = parsing('gr24', float('inf'), 3)
+# BnB_model = BnBMethod()
+# print(BnB_model.start(np.array(matrix), 1), BnB_model.getMeanTime())
