@@ -116,8 +116,3 @@ class BnBMethod:
     
     def getMeanTime(self) -> float:
         return np.mean(self.times)
-
-# from parseTSP import parsing
-# matrix, _ = parsing('gr24', float('inf'), 3)
-# BnB_model = BnBMethod()
-# print(BnB_model.start(np.array(matrix), 1), BnB_model.getMeanTime())

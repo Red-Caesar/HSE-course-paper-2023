@@ -14,7 +14,7 @@ class HopfieldModel:
 
     '''
     
-    def __init__(self, distance_matrix: List[List[float]], fun_activation: str, param: List[int]=[1,1,1,1], repetition: int=5, iterations_limit: int=100000, without_changes: int=100) -> None:
+    def __init__(self, distance_matrix: List[List[float]], fun_activation: str, param: List[int]=[1,1,1,1], repetition: int=5, iterations_limit: int=1000000, without_changes: int=1000) -> None:
         if len(param) != 4:
             raise ValueError('You should put 4 hyperparameters to the network') 
         if fun_activation not in ['threshold', 'sigmoid']:
@@ -114,7 +114,6 @@ class HopfieldModel:
             return False
         return True
 
-# Сейчас у меня сохраняется лучший путь последней итерации)) А так быть не должно
     def start_network(self) -> bool:
         if self.start_counter > 100:
             return
@@ -128,27 +127,30 @@ class HopfieldModel:
                 self.best_energy_fun = self.calculate_energy_fun()
             k = 0
             start = time.time()
+            new_e_fun = float('inf')
             without_changes_counter = 0
             while k < self.iterations_limit:
                 neuron = np.random.choice(self.index_list, 1)[0]
                 self.calculate_neuron(neuron, list(self.layer.values()))
-                new_e_fun = self.calculate_energy_fun()
+                old_e_fun, new_e_fun = new_e_fun, self.calculate_energy_fun()
                 if new_e_fun < self.best_energy_fun:
                     self.best_energy_fun = new_e_fun
                     self.all_energy.append(new_e_fun)
                     self.final_path = self.layer
-                else:
+                if old_e_fun == new_e_fun:
                     without_changes_counter += 1
+                else:
+                    without_changes_counter = 0
 
                 if without_changes_counter > self.without_changes:
                     break
 
-            if self.isTSP(self.final_path):
-                end = time.time() - start
-                self.times.append(end)
-                self.total = self.calculate_distance()
-                self.all_total.append(self.total)
-                self.isFinished = True
+            # if self.isTSP(self.final_path):
+            end = time.time() - start
+            self.times.append(end)
+        self.total = self.calculate_distance()
+        # self.all_total.append(self.total)
+        self.isFinished = True
         
         if not self.isFinished:
             self.start_network()
@@ -158,21 +160,27 @@ class HopfieldModel:
         for index in self.index_list:
             if int(self.final_path[index]) == 1:
                 city, order = list(map(int, index.split('_')))
-                order_dict[order] = city
+                if order not in order_dict:
+                    order_dict[order] = [city]
+                else:
+                    order_dict[order].append(city)
 
         order_turple = sorted(order_dict.items(), key=lambda x: x[0])
-        total = self.distance_matrix[len(order_turple) - 1][0] 
+        # total = self.distance_matrix[len(order_turple) - 1][0] 
+        total = 0
         path = []
         for i, order_city in enumerate(order_turple):
+            path.append(', '.join(list(map(str, order_city[1]))))
             if i == 0:
-                path.append(order_city[1])
                 continue
-            cur_city = int(order_city[1])
-            prev_city = int(order_turple[i-1][1])
-            total += self.distance_matrix[prev_city][cur_city]
-            path.append(order_city[1])
-        path.append(order_turple[0][1])
-        self.string_path = ' -> '.join(list(map(str, path)))
+            cur_cities = order_city[1]
+            prev_cities = order_turple[i-1][1]
+            for cur_city in cur_cities:
+                total += self.distance_matrix[prev_cities[0]][cur_city]
+        for cur_city in order_turple[0][1]:
+            total += self.distance_matrix[order_turple[-1][1][0]][cur_city]
+        path.append(', '.join(list(map(str, order_turple[0][1]))))
+        self.string_path = ' -> '.join(path)
         return total
 
     
@@ -199,6 +207,7 @@ class HopfieldModel:
 def tune_model(task_name: str, matrix: np.array, fun: str, A: List[int], B: List[int], C: List[int], D: List[int], rep: int) -> None:
     table = []
     for i in range(len(A)):
+        print(i)
         model = HopfieldModel(matrix, fun, [A[i], B[i], C[i], D[i]], rep)
         model.start_network()
         if model.get_isFinished():
@@ -207,6 +216,8 @@ def tune_model(task_name: str, matrix: np.array, fun: str, A: List[int], B: List
             mean_path = model.get_mean_path()
             path = model.get_path()
             table.append([A[i], B[i], C[i], D[i], total, mean_time, mean_path, path])
+            df = pd.DataFrame(table, columns=['A', 'B', 'C', 'D', 'result', 'mean_time', 'mean_path', 'path'])
+            df.to_excel(f'results/{task_name}_{i}.xlsx')  
 
     df = pd.DataFrame(table, columns=['A', 'B', 'C', 'D', 'result', 'mean_time', 'mean_path', 'path'])
     df.to_excel(f'results/{task_name}.xlsx')  
